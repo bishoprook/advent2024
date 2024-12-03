@@ -75,7 +75,6 @@ if __name__ == '__main__':
     import argparse
     from more_itertools import quantify
 
-    # Parse the command line arguments.
     parser = argparse.ArgumentParser(prog='AOC2024-d01')
     parser.add_argument('filename')
     args = parser.parse_args()

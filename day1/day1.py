@@ -4,14 +4,10 @@ def load_lists(filename: str) -> tuple[list[int], list[int]]:
     
     :param str filename: the file to open
     :returns tuple[list[int], list[int]]: the two sorted lists"""
-    import re
-    pattern = r"(\d+)\s+(\d+)"
     with open(filename, 'r') as file:
-        matches = [re.search(pattern, line).groups() for line in file]
-        list_a = [int(a) for a, _ in matches]
-        list_a.sort()
-        list_b = [int(b) for _, b in matches]
-        list_b.sort()
+        matches = [line.split() for line in file]
+        list_a = sorted([int(a) for a, _ in matches])
+        list_b = sorted([int(b) for _, b in matches])
         return (list_a, list_b)
 
 def total_distance(list_a: list[int], list_b: list[int]) -> int:
@@ -21,8 +17,7 @@ def total_distance(list_a: list[int], list_b: list[int]) -> int:
 
     :param list[int] list_a: the first input list
     :param list[int] list_b: the second input list
-    :returns int: the total distance between the lists
-    """
+    :returns int: the total distance between the lists"""
     distances = [abs(a - b) for a, b in zip(list_a, list_b)]
     return sum(distances)
 
@@ -44,7 +39,6 @@ def similarity(list_a: list[int], list_b: list[int]) -> int:
 if __name__ == '__main__':
     import argparse
 
-    # Parse the command line arguments.
     parser = argparse.ArgumentParser(prog='AOC2024-d01')
     parser.add_argument('filename')
     args = parser.parse_args()
