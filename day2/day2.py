@@ -1,14 +1,9 @@
-import argparse
-
-# Parse the command line arguments.
-parser = argparse.ArgumentParser(prog='AOC2024-d01')
-parser.add_argument('filename')
-args = parser.parse_args()
-
 # Open the file and read line by line. Each report is a space-separated list of
 # levels.
-with open(args.filename, 'r') as file:
-    reports = [[int(level) for level in line.split()] for line in file]
+def load_reports(filename):
+    with open(filename, 'r') as file:
+        for report_line in file:
+            yield [int(level) for level in report_line.split()]
 
 # Return -1 for negative numbers, 1 for positive numbers, 0 for zero.
 def valence(num):
@@ -54,5 +49,19 @@ def candidate_repairs(report):
 def is_safe_with_repair(report):
     return any(is_safe(candidate) for candidate in candidate_repairs(report))
 
-safe_reports = [report for report in reports if is_safe_with_repair(report)]
-print("Safe reports: ", len(safe_reports))
+# Only try to load command-line arguments if we're in non-interactive mode. If
+# imported into a REPL, we just want to test out the functions above.
+import sys
+interactive = hasattr(sys, 'ps1')
+if not interactive:
+    import argparse
+    from more_itertools import quantify
+
+    # Parse the command line arguments.
+    parser = argparse.ArgumentParser(prog='AOC2024-d01')
+    parser.add_argument('filename')
+    args = parser.parse_args()
+
+    reports = load_reports(args.filename)
+    safe_reports = quantify(reports, is_safe_with_repair)
+    print("Safe reports: ", safe_reports)
