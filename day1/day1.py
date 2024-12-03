@@ -32,7 +32,7 @@ def similarity(list_a: list[int], list_b: list[int]) -> int:
     :param list[int] list_b: the second input list
     :returns int: the similarity between the two lists"""
     from itertools import groupby
-    counts_b = { k: len(list(v)) for k, v in groupby(list_b) }
+    counts_b = { k: sum(1 for _ in v) for k, v in groupby(list_b) }
     products = [value * counts_b.get(value, 0) for value in list_a]
     return sum(products)
 
