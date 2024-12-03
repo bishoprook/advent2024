@@ -70,11 +70,7 @@ def next_state(state: State, instruction: Instruction) -> State:
         case ("don't"):
             return (total, False)
 
-# Only try to load command-line arguments if we're in non-interactive mode. If
-# imported into a REPL, we just want to test out the functions above.
-import sys
-interactive = hasattr(sys, 'ps1')
-if not interactive:
+if __name__ == '__main__':
     import argparse
 
     # Parse the command line arguments.

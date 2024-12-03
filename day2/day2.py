@@ -71,11 +71,7 @@ def is_safe_with_repair(report: Report) -> bool:
     :returns bool: whether the report is safe"""
     return any(is_safe(candidate) for candidate in candidate_repairs(report))
 
-# Only try to load command-line arguments if we're in non-interactive mode. If
-# imported into a REPL, we just want to test out the functions above.
-import sys
-interactive = hasattr(sys, 'ps1')
-if not interactive:
+if __name__ == '__main__':
     import argparse
     from more_itertools import quantify
 

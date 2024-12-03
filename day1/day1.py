@@ -41,11 +41,7 @@ def similarity(list_a: list[int], list_b: list[int]) -> int:
     products = [value * counts_b.get(value, 0) for value in list_a]
     return sum(products)
 
-# Only try to load command-line arguments if we're in non-interactive mode. If
-# imported into a REPL, we just want to test out the functions above.
-import sys
-interactive = hasattr(sys, 'ps1')
-if not interactive:
+if __name__ == '__main__':
     import argparse
 
     # Parse the command line arguments.
