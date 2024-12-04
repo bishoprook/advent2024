@@ -23,17 +23,14 @@ class Tokenizer(object):
     def eof(self) -> bool:
         return len(self.source.peek(1)) == 0
     
-    def advance(self, size = 1, buffer = True) -> None:
-        """Advances by `size` bytes in the source. If `buffer` is true, the
-        passed-over bytes will be stored in the local buffer. This handles
-        strings and numbers that appear between specific tokens."""
-        data = self.source.read(size)
-        if buffer:
-            self.buffer.extend(data)
+    def advance(self, size = 1) -> None:
+        """Advances by `size` bytes in the source and store in the buffer. This
+        handles strings and numbers that appear between specific tokens."""
+        self.buffer.extend(self.source.read(size))
     
     def next_token_type(self) -> TokenType | None:
-        """Finds the TokenType associated with the bytes currently at the
-        front of `self.source`, or `None` if there is no matching token."""
+        """Finds the TokenType associated with the bytes currently at the front
+        of `self.source`, or `None` if there is no matching token."""
         for token_type in TokenType:
             token_bytes, width = token_type.value
             if width > 0 and self.source.peek(width)[:width] == token_bytes:
@@ -46,7 +43,6 @@ class Tokenizer(object):
         if len(self.buffer) == 0:
             return
         text = self.buffer.decode('utf-8')
-        self.buffer.clear()
         yield int(text) if text.isdigit() else text
 
     def __iter__(self) -> Generator[Token, None, None]:
@@ -64,7 +60,8 @@ class Tokenizer(object):
             yield next_token_type
 
             _, width = next_token_type.value
-            self.advance(width, buffer=False)
+            self.advance(width)
+            self.buffer.clear()
 
         yield from self.buffer_token()
         yield TokenType.EOF
