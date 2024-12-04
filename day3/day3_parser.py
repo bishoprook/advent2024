@@ -73,11 +73,7 @@ OpCode = Enum('OpCode', ['MUL', 'DO', 'DONT'])
 type Instruction = tuple[Literal[OpCode.MUL], int, int] | Literal[OpCode.DO, OpCode.DONT]
 
 def parse(tokens: list[Token]) -> Generator[Instruction, None, None]:
-    """Parse a sequence of tokens into a sequence of instructions.
-    
-    :param list[Token] tokens: the tokens to read (must be a list)
-    :returns Generator[Instruction, None, None]: the sequence of
-    instructions"""
+    """Parse a sequence of tokens into a sequence of instructions."""
     T = TokenType
     idx = 0
     while True:
@@ -97,10 +93,7 @@ def parse(tokens: list[Token]) -> Generator[Instruction, None, None]:
                 idx += 1
 
 def load_instructions(filename: str) -> list[Instruction]:
-    """Open the file, tokenize, and parse the instructions.
-
-    :param str filename: the file to open
-    :returns list[Instruction]: the sequence of instructions"""
+    """Open the file, tokenize, and parse the instructions."""
     with open(filename, 'rb') as file:
         tokens = list(Tokenizer(file))
         return list(parse(tokens))
@@ -109,18 +102,12 @@ State = tuple[int, bool]
 
 def initial_state() -> State:
     """The initial state when calculating the result. Total starts at 0, and
-    mul operations are initially enabled.
-
-    :returns State: a new initial state"""
+    mul operations are initially enabled."""
     return (0, True)
 
 def next_state(state: State, instruction: Instruction) -> State:
     """Returns a new state for the current state and parsed instruction, or the
-    same state if unchanged.
-
-    :param State state: the current state
-    :param Instruction instruction: the instruction to apply
-    :returns State: a new state or the same state if unchanged"""
+    same state if unchanged."""
     total, enabled = state
     match instruction:
         case (OpCode.MUL, a, b):
