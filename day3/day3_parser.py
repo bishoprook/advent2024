@@ -13,58 +13,40 @@ class TokenType(Enum):
 
 type Token = TokenType | int | str
 
-class Tokenizer(object):
-    """An Iterable tokenizer that takes in a BufferedReader as a source. It
-    yields a sequence of tokens based on the problem statement."""
-    def __init__(self, source):
-        self.source = source
-        self.buffer = bytearray()
-    
-    def eof(self) -> bool:
-        return len(self.source.peek(1)) == 0
-    
-    def advance(self, size = 1) -> None:
-        """Advances by `size` bytes in the source and store in the buffer. This
-        handles strings and numbers that appear between specific tokens."""
-        self.buffer.extend(self.source.read(size))
-    
-    def next_token_type(self) -> TokenType | None:
-        """Finds the TokenType associated with the bytes currently at the front
-        of `self.source`, or `None` if there is no matching token."""
+def decode_buffer(buffer: bytearray) -> str | int | None:
+    """If buffer is empty, returns None. If numeric, returns the represented
+    integer. Else returns as a UTF-8 string."""
+    if len(buffer) == 0:
+        return None
+    text = buffer.decode('utf-8')
+    return int(text) if text.isdigit() else text
+
+def advance_to_next_delimiter(source) -> tuple[bytearray, TokenType]:
+    """Advances position in `source` one byte at a time, storing those
+    bytes in `buffer`, until a delimiter is reached. That will be either
+    a recognized keyword token, or EOF. Returns both buffer and delimiter."""
+    buffer = bytearray()
+    while True:
+        next_bytes = source.read(1)
+        buffer.extend(next_bytes)
         for token_type in TokenType:
-            token_bytes, width = token_type.value
-            if width > 0 and self.source.peek(width)[:width] == token_bytes:
-                return token_type
+            t_bytes, width = token_type.value
+            if width > 0 and buffer.endswith(t_bytes):
+                return buffer.removesuffix(t_bytes), token_type
+        if len(next_bytes) == 0:
+            return buffer, TokenType.EOF
 
-    def buffer_token(self) -> Generator[Token, None, None]:
-        """Yields between 0 and 1 `Token`s: nothing if `self.buffer` is
-        currently empty, otherwise either an `int` or `str` depending on the
-        format of the data."""
-        if len(self.buffer) == 0:
+def read_all_tokens(source) -> Generator[Token, None, None]:
+    """Reads source and produces a stream of tokens based on the problem
+    statement."""
+    while True:
+        buffer, next_token = advance_to_next_delimiter(source)
+        buffer_token = decode_buffer(buffer)
+        if buffer_token is not None:
+            yield buffer_token
+        yield next_token
+        if next_token is TokenType.EOF:
             return
-        text = self.buffer.decode('utf-8')
-        yield int(text) if text.isdigit() else text
-
-    def __iter__(self) -> Generator[Token, None, None]:
-        """Produces a sequence of `Token`s until `self.source` reaches EOF.
-        Then, yields at most one more `int` or `str` buffer token, and an EOF
-        token."""
-        while not self.eof():
-            next_token_type = self.next_token_type()
-
-            if next_token_type is None:
-                self.advance()
-                continue
-            
-            yield from self.buffer_token()
-            yield next_token_type
-
-            _, width = next_token_type.value
-            self.advance(width)
-            self.buffer.clear()
-
-        yield from self.buffer_token()
-        yield TokenType.EOF
 
 OpCode = Enum('OpCode', ['MUL', 'DO', 'DONT'])
 type Instruction = tuple[Literal[OpCode.MUL], int, int] | Literal[OpCode.DO, OpCode.DONT]
@@ -92,7 +74,7 @@ def parse(tokens: list[Token]) -> Generator[Instruction, None, None]:
 def load_instructions(filename: str) -> list[Instruction]:
     """Open the file, tokenize, and parse the instructions."""
     with open(filename, 'rb') as file:
-        tokens = list(Tokenizer(file))
+        tokens = list(read_all_tokens(file))
         return list(parse(tokens))
 
 State = tuple[int, bool]
