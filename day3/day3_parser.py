@@ -1,48 +1,76 @@
-from typing import Literal, Generator
+from typing import Iterable, Literal, Generator
 from enum import Enum
-import re
+from itertools import islice
+from more_itertools import consume
+import collections
 
-def tokenize(line: str) -> list[str]:
-    """Produces a list of tokens delimited according to the problem
-    statement."""
-    return [t for t in re.split(r"(mul|do|n't|[(),])", line) if len(t) > 0]
+def tokenize(source: bytes) -> Generator[str, None, None]:
+    delimiters = [b'mul', b'do', b"n't", b'(', b')', b',']
+    buffer = bytearray()
+    while True:
+        next_byte = source.read(1)
+        buffer.extend(next_byte)
+        for delimiter in delimiters:
+            if buffer.endswith(delimiter):
+                buffer_str = buffer.removesuffix(delimiter).decode()
+                if len(buffer_str) > 0:
+                    yield buffer_str
+                yield delimiter.decode()
+                buffer.clear()
+        if len(next_byte) == 0:
+            if len(buffer) > 0:
+                yield buffer.decode()
+            return
 
-LexCode = Enum('LexCode', ['MUL', 'DO', 'NT', 'OPAREN', 'CPAREN', 'COMMA'])
+LexCode = Enum('LexCode', ['MUL', 'DO', 'NT', 'OP', 'CP', 'COMMA'])
 
-def lex(token: str) -> LexCode | int | str:
-    match token:
-        case 'mul': return LexCode.MUL
-        case 'do': return LexCode.DO
-        case "n't": return LexCode.NT
-        case '(': return LexCode.OP
-        case ')': return LexCode.CP
-        case ',': return LexCode.COMMA
-        case str(n) if n.isdigit(): return int(n)
-        case _: return token
+def lex(tokens: Iterable[str]) -> Generator[LexCode | int | str, None, None]:
+    for token in tokens:
+        match token:
+            case 'mul': yield LexCode.MUL
+            case 'do': yield LexCode.DO
+            case "n't": yield LexCode.NT
+            case '(': yield LexCode.OP
+            case ')': yield LexCode.CP
+            case ',': yield LexCode.COMMA
+            case str(n) if n.isdigit(): yield int(n)
+            case _: yield token
 
 OpCode = Enum('OpCode', ['MUL', 'DO', 'DONT'])
 type Instruction = tuple[Literal[OpCode.MUL], int, int] | Literal[OpCode.DO, OpCode.DONT]
 
-def parse(lexes: list[LexCode | int | str]) -> Generator[Instruction, None, None]:
-    while len(lexes) > 0:
-        match lexes:
+# Slight tweak from more_itertools
+def sliding_window(iterable, n):
+    "Collect data into overlapping fixed-length chunks or blocks."
+    # sliding_window('ABCDEFG', 4) → ABCD BCDE CDEF DEFG EFG FG G ()
+    iterator = iter(iterable)
+    window = collections.deque(islice(iterator, n - 1), maxlen=n)
+    for x in iterator:
+        window.append(x)
+        yield tuple(window)
+    while len(window) > 0:
+        window.popleft()
+        yield tuple(window)
+
+def parse(lexes: Iterable[LexCode | int | str]) -> Generator[Instruction, None, None]:
+    window = sliding_window(lexes, 6)
+    for items in window:
+        match items:
             case [LexCode.MUL, LexCode.OP, int(x), LexCode.COMMA, int(y), LexCode.CP, *_]:
                 yield (OpCode.MUL, x, y)
-                lexes = lexes[6:]
+                consume(window, 5)
             case [LexCode.DO, LexCode.OP, LexCode.CP, *_]:
                 yield OpCode.DO
-                lexes = lexes[3:]
+                consume(window, 2)
             case [LexCode.DO, LexCode.NT, LexCode.OP, LexCode.CP, *_]:
                 yield OpCode.DONT
-                lexes = lexes[3:]
-            case _:
-                lexes = lexes[1:]
+                consume(window, 2)
 
 def load_instructions(filename: str) -> list[Instruction]:
     """Open the file, tokenize, and parse the instructions."""
-    with open(filename, 'r') as file:
-        tokens = [token for line in file for token in tokenize(line)]
-        lexes = [lex(token) for token in tokens]
+    with open(filename, 'rb') as file:
+        tokens = tokenize(file)
+        lexes = lex(tokens)
         instructions = list(parse(lexes))
         return instructions
 
