@@ -1,81 +1,50 @@
 from typing import Literal, Generator
 from enum import Enum
+import re
 
-class Delimiter(Enum):
-    """Enum representing the different delimiters in the input."""
-    MUL = (0, b'mul')
-    DO = (1, b'do')
-    NT = (2, b"n't")
-    OPAREN = (3, b'(')
-    COMMA = (4, b',')
-    CPAREN = (5, b')')
-    EOF = (6, None)
-
-type Token = Delimiter | int | str
-
-def decode_buffer(buffer: bytearray) -> str | int | None:
-    """If buffer is empty, returns None. If numeric, returns the represented
-    integer. Else returns as a UTF-8 string."""
-    if len(buffer) == 0:
-        return None
-    text = buffer.decode('utf-8')
-    return int(text) if text.isdigit() else text
-
-def advance_to_next_delimiter(source) -> tuple[bytearray, Delimiter]:
-    """Advances position in `source` one byte at a time, storing those
-    bytes in `buffer`, until a delimiter is reached. That will be either
-    a recognized keyword token, or EOF. Returns both buffer and delimiter."""
-    buffer = bytearray()
-    while True:
-        next_bytes = source.read(1)
-        buffer.extend(next_bytes)
-        for token_type in Delimiter:
-            _, t_bytes = token_type.value
-            if t_bytes is not None and buffer.endswith(t_bytes):
-                return buffer.removesuffix(t_bytes), token_type
-        if len(next_bytes) == 0:
-            return buffer, Delimiter.EOF
-
-def read_all_tokens(source) -> Generator[Token, None, None]:
-    """Reads source and produces a stream of tokens based on the problem
+def tokenize(line: str) -> list[str]:
+    """Produces a list of tokens delimited according to the problem
     statement."""
-    while True:
-        buffer, next_token = advance_to_next_delimiter(source)
-        buffer_token = decode_buffer(buffer)
-        if buffer_token is not None:
-            yield buffer_token
-        yield next_token
-        if next_token is Delimiter.EOF:
-            return
+    return [t for t in re.split(r"(mul|do|n't|[(),])", line) if len(t) > 0]
+
+LexCode = Enum('LexCode', ['MUL', 'DO', 'NT', 'OPAREN', 'CPAREN', 'COMMA'])
+
+def lex(token: str) -> LexCode | int | str:
+    match token:
+        case 'mul': return LexCode.MUL
+        case 'do': return LexCode.DO
+        case "n't": return LexCode.NT
+        case '(': return LexCode.OP
+        case ')': return LexCode.CP
+        case ',': return LexCode.COMMA
+        case str(n) if n.isdigit(): return int(n)
+        case _: return token
 
 OpCode = Enum('OpCode', ['MUL', 'DO', 'DONT'])
 type Instruction = tuple[Literal[OpCode.MUL], int, int] | Literal[OpCode.DO, OpCode.DONT]
 
-def parse(tokens: list[Token]) -> Generator[Instruction, None, None]:
-    """Parse a sequence of tokens into a sequence of instructions."""
-    D = Delimiter
-    idx = 0
-    while True:
-        match tokens[idx:]:
-            case [D.EOF, *_]:
-                return
-            case [D.MUL, D.OPAREN, int(x), D.COMMA, int(y), D.CPAREN, *_]:
+def parse(lexes: list[LexCode | int | str]) -> Generator[Instruction, None, None]:
+    while len(lexes) > 0:
+        match lexes:
+            case [LexCode.MUL, LexCode.OP, int(x), LexCode.COMMA, int(y), LexCode.CP, *_]:
                 yield (OpCode.MUL, x, y)
-                idx += 6
-            case [D.DO, D.OPAREN, D.CPAREN, *_]:
+                lexes = lexes[6:]
+            case [LexCode.DO, LexCode.OP, LexCode.CP, *_]:
                 yield OpCode.DO
-                idx += 3
-            case [D.DO, D.NT, D.OPAREN, D.CPAREN, *_]:
+                lexes = lexes[3:]
+            case [LexCode.DO, LexCode.NT, LexCode.OP, LexCode.CP, *_]:
                 yield OpCode.DONT
-                idx += 3
+                lexes = lexes[3:]
             case _:
-                idx += 1
+                lexes = lexes[1:]
 
 def load_instructions(filename: str) -> list[Instruction]:
     """Open the file, tokenize, and parse the instructions."""
-    with open(filename, 'rb') as file:
-        tokens = list(read_all_tokens(file))
-        return list(parse(tokens))
+    with open(filename, 'r') as file:
+        tokens = [token for line in file for token in tokenize(line)]
+        lexes = [lex(token) for token in tokens]
+        instructions = list(parse(lexes))
+        return instructions
 
 State = tuple[int, bool]
 
