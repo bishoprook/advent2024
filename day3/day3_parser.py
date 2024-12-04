@@ -1,17 +1,17 @@
 from typing import Literal, Generator
 from enum import Enum
 
-class TokenType(Enum):
-    """Enum representing the different meaningful tokens in the input."""
-    MUL = (b'mul', 3)
-    DO = (b'do', 2)
-    NT = (b"n't", 3)
-    OPAREN = (b'(', 1)
-    COMMA = (b',', 1)
-    CPAREN = (b')', 1)
-    EOF = (None, 0)
+class Delimiter(Enum):
+    """Enum representing the different delimiters in the input."""
+    MUL = (0, b'mul')
+    DO = (1, b'do')
+    NT = (2, b"n't")
+    OPAREN = (3, b'(')
+    COMMA = (4, b',')
+    CPAREN = (5, b')')
+    EOF = (6, None)
 
-type Token = TokenType | int | str
+type Token = Delimiter | int | str
 
 def decode_buffer(buffer: bytearray) -> str | int | None:
     """If buffer is empty, returns None. If numeric, returns the represented
@@ -21,7 +21,7 @@ def decode_buffer(buffer: bytearray) -> str | int | None:
     text = buffer.decode('utf-8')
     return int(text) if text.isdigit() else text
 
-def advance_to_next_delimiter(source) -> tuple[bytearray, TokenType]:
+def advance_to_next_delimiter(source) -> tuple[bytearray, Delimiter]:
     """Advances position in `source` one byte at a time, storing those
     bytes in `buffer`, until a delimiter is reached. That will be either
     a recognized keyword token, or EOF. Returns both buffer and delimiter."""
@@ -29,12 +29,12 @@ def advance_to_next_delimiter(source) -> tuple[bytearray, TokenType]:
     while True:
         next_bytes = source.read(1)
         buffer.extend(next_bytes)
-        for token_type in TokenType:
-            t_bytes, width = token_type.value
-            if width > 0 and buffer.endswith(t_bytes):
+        for token_type in Delimiter:
+            _, t_bytes = token_type.value
+            if t_bytes is not None and buffer.endswith(t_bytes):
                 return buffer.removesuffix(t_bytes), token_type
         if len(next_bytes) == 0:
-            return buffer, TokenType.EOF
+            return buffer, Delimiter.EOF
 
 def read_all_tokens(source) -> Generator[Token, None, None]:
     """Reads source and produces a stream of tokens based on the problem
@@ -45,7 +45,7 @@ def read_all_tokens(source) -> Generator[Token, None, None]:
         if buffer_token is not None:
             yield buffer_token
         yield next_token
-        if next_token is TokenType.EOF:
+        if next_token is Delimiter.EOF:
             return
 
 OpCode = Enum('OpCode', ['MUL', 'DO', 'DONT'])
@@ -53,19 +53,19 @@ type Instruction = tuple[Literal[OpCode.MUL], int, int] | Literal[OpCode.DO, OpC
 
 def parse(tokens: list[Token]) -> Generator[Instruction, None, None]:
     """Parse a sequence of tokens into a sequence of instructions."""
-    T = TokenType
+    D = Delimiter
     idx = 0
     while True:
         match tokens[idx:]:
-            case [T.EOF, *_]:
+            case [D.EOF, *_]:
                 return
-            case [T.MUL, T.OPAREN, int(x), T.COMMA, int(y), T.CPAREN, *_]:
+            case [D.MUL, D.OPAREN, int(x), D.COMMA, int(y), D.CPAREN, *_]:
                 yield (OpCode.MUL, x, y)
                 idx += 6
-            case [T.DO, T.OPAREN, T.CPAREN, *_]:
+            case [D.DO, D.OPAREN, D.CPAREN, *_]:
                 yield OpCode.DO
                 idx += 3
-            case [T.DO, T.NT, T.OPAREN, T.CPAREN, *_]:
+            case [D.DO, D.NT, D.OPAREN, D.CPAREN, *_]:
                 yield OpCode.DONT
                 idx += 3
             case _:
